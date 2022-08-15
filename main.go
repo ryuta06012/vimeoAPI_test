@@ -1,18 +1,21 @@
 package main
 
 import (
-	"fmt"
-	"os"
-	"net/http"
-	"log"
-	"strconv"
+	"bytes"
 	"encoding/json"
+	"fmt"
+	"image/png"
+	"io"
+	"log"
+	"net/http"
+	"os"
+	"strconv"
 
 	"golang.org/x/oauth2"
 
+	tus "github.com/eventials/go-tus"
 	"github.com/joho/godotenv"
 	"github.com/silentsokolov/go-vimeo/vimeo"
-	tus "github.com/eventials/go-tus"
 )
 
 type Path struct {
@@ -25,7 +28,29 @@ type VideoID struct {
 
 type Thumanil struct {
 	Filepath string `json:"filepath"`
-	ID string `json:"id"`
+	ID       string `json:"id"`
+}
+
+type TpictureSize struct {
+	Width              int    `json:"width,omitempty"`
+	Height             int    `json:"height,omitempty"`
+	Link               string `json:"link,omitempty"`
+	LinkWithPlayButton string `json:"link_with_play_button,omitempty"`
+}
+
+type Tpictures struct {
+	URI            string          `json:"uri,omitempty"`
+	Active         bool            `json:"active"`
+	BaseLink       string          `json:"base_link"`
+	DefaultPicture bool            `json:"default_picture"`
+	Type           string          `json:"type,omitempty"`
+	Sizes          []*TpictureSize `json:"sizes,omitempty"`
+	Link           string          `json:"link,omitempty"`
+	ResourceKey    string          `json:"resource_key,omitempty"`
+}
+
+type Request struct {
+	Name string `json:"name"`
 }
 
 type Uploader struct{}
@@ -53,7 +78,7 @@ func Initialization() *vimeo.Client {
 func RequestRead(w http.ResponseWriter, r *http.Request, method string, s interface{}) {
 	if r.Method != method {
 		http.Error(w, http.StatusText(http.StatusMethodNotAllowed), http.StatusMethodNotAllowed)
-    	return
+		return
 	}
 	if r.Header.Get("Content-Type") != "application/json" {
 		w.WriteHeader(http.StatusBadRequest)
@@ -64,16 +89,17 @@ func RequestRead(w http.ResponseWriter, r *http.Request, method string, s interf
 		return
 	}
 }
+
 /*
-	* videoのIDからvimeoにアップロードしたビデオを取得する
-*/
-func (v VideoID)GetVideo(c *vimeo.Client, vid int) (*vimeo.Video, error) {
+* videoのIDからvimeoにアップロードしたビデオを取得する
+ */
+func (v VideoID) GetVideo(c *vimeo.Client, vid int) (*vimeo.Video, error) {
 	video, _, err := c.Videos.Get(vid)
 	return video, err
 }
 
 func GetThumnailHandler(w http.ResponseWriter, r *http.Request) {
-	var videoid  VideoID
+	var videoid VideoID
 
 	RequestRead(w, r, "GET", &videoid)
 	client := Initialization()
@@ -88,13 +114,119 @@ func GetThumnailHandler(w http.ResponseWriter, r *http.Request) {
 		log.Printf("Videos.GetPictures(): %v", err)
 		return
 	}
-	fmt.Println("URI = ",picture.URI, "\n", "picture.Link = ", picture.Link)
+	fmt.Println("URI = ", picture.URI, "\n", "picture.Link = ", picture.Link)
+}
+
+func NewRequest(method, url string, header map[string]string, body []byte) (*http.Request, error) {
+	var buf io.ReadWriter
+	if body != nil {
+		buf = new(bytes.Buffer)
+		err := json.NewEncoder(buf).Encode(body)
+		if err != nil {
+			return nil, err
+		}
+	}
+	req, err := http.NewRequest(method, url, bytes.NewReader(body))
+	if err != nil {
+		return nil, err
+	}
+	for key, value := range header {
+		req.Header.Set(key, value)
+	}
+	return req, nil
+}
+
+func Get(w http.ResponseWriter, r *http.Request) {
+	Initialization()
+	url := "https://api.vimeo.com/videos/739601966?fields=metadata.connections.pictures.uri"
+	header := map[string]string{
+		"Authorization": "bearer " + os.Getenv("ACCESS_TOKEN"),
+		"Accept":        "application/vnd.vimeo.*+json;version=3.4",
+	}
+	req, err := NewRequest("GET", url, header, nil)
+	if err != nil {
+		fmt.Println(err.Error())
+	}
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		fmt.Println(err.Error())
+	}
+	io.Copy(os.Stdout, res.Body)
+}
+
+func Post(w http.ResponseWriter, r *http.Request) {
+	Initialization()
+	url := "https://api.vimeo.com/videos/739601966/pictures" //POST
+	header := map[string]string{
+		"Authorization": "bearer " + os.Getenv("ACCESS_TOKEN"),
+		"Accept":        "application/vnd.vimeo.*+json;version=3.4",
+	}
+	body := []byte("{\"active\": true}")
+	req, err := NewRequest("POST", url, header, body)
+	if err != nil {
+		fmt.Println(err.Error())
+	}
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		fmt.Println(err.Error())
+	}
+	io.Copy(os.Stdout, res.Body)
+}
+
+func Put(w http.ResponseWriter, r *http.Request) {
+	Initialization()
+	url := "https://i.vimeocdn.com/video/1488439467-072bf0e3a93d80c30c6d2c5ce478feda122eabbfc7811b8a39efb8c3a4e50fde-d"
+	header := map[string]string{
+		"Accept":       "application/vnd.vimeo.*+json;version=3.4",
+		"Content-Type": "image/png",
+	}
+
+	file, err := os.Open("/Users/handaryuuta/Downloads/test.png")
+	img, err := png.Decode(file)
+	if err != nil {
+		log.Fatal(err)
+	}
+	file.Close()
+	buffer := new(bytes.Buffer)
+	if err := png.Encode(buffer, img); err != nil {
+		log.Println("unable to encode image.")
+	}
+	imageBytes := buffer.Bytes()
+	req, err := NewRequest("PUT", url, header, imageBytes)
+	if err != nil {
+		fmt.Println(err.Error())
+	}
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		fmt.Println(err.Error())
+	}
+	io.Copy(os.Stdout, res.Body)
+}
+
+func Patch(w http.ResponseWriter, r *http.Request) {
+	Initialization()
+	url := "https://api.vimeo.com/videos/738843229/pictures/1488387775" //PATCH
+	header := map[string]string{
+		"Authorization": "bearer " + os.Getenv("ACCESS_TOKEN"),
+		"Content-Type":  "application/json",
+		"Accept":        "application/vnd.vimeo.*+json;version=3.4",
+	}
+	body := []byte(`{"active"}: true`)
+	req, err := NewRequest("PATCH", url, header, body)
+	if err != nil {
+		fmt.Println(err.Error())
+	}
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		fmt.Println(err.Error())
+	}
+	io.Copy(os.Stdout, res.Body)
 }
 
 func UploadThumnailHandler(w http.ResponseWriter, r *http.Request) {
 	var thumnail Thumanil
-
-	RequestRead(w, r, "GET", &thumnail)
+	Initialization()
+	RequestRead(w, r, "POST", &thumnail)
 	client := Initialization()
 	vid, _ := strconv.Atoi(thumnail.ID)
 	input := &vimeo.PicturesRequest{
@@ -109,12 +241,18 @@ func UploadThumnailHandler(w http.ResponseWriter, r *http.Request) {
 		log.Printf("Videos.CreatePictures(): %v", err)
 		return
 	}
-	picture, _, err = client.Videos.UploadPicture(vid, input, f)
+	/* picture, _, err := client.Videos.UploadPicture(vid, input, f)
 	if err != nil {
 		log.Printf("Videos.UploadPicture(): %v", err)
 		return
+	} */
+
+	picture, _, err := client.Videos.EditPictures(vid, 1486761507, input)
+	if err != nil {
+		log.Printf("Videos.EditPictures(): %v", err)
+		return
 	}
-	fmt.Println(picture)
+	fmt.Println(picture, "\n")
 }
 
 func (u Uploader) UploadFromFile(c *vimeo.Client, uploadURL string, f *os.File) error {
@@ -132,7 +270,8 @@ func (u Uploader) UploadFromFile(c *vimeo.Client, uploadURL string, f *os.File) 
 
 	return uploader.Upload()
 }
-// /videos/738517569
+
+// /videos/738843229
 func UploadVideo(w http.ResponseWriter, filepath string) {
 	f, err := os.Open(filepath)
 	if err != nil {
@@ -141,7 +280,7 @@ func UploadVideo(w http.ResponseWriter, filepath string) {
 	client := Initialization()
 	//videoをアップロード
 	video, _, _ := client.Users.UploadVideo("", f)
-	
+
 	fmt.Println("video.UR = ", video.URI, "\n", "video.Name = ", video.Name, "\n", "video.Link = ", video.Link, "\n", "video.Files = ", video.Files)
 }
 
@@ -158,13 +297,18 @@ func UploadVideoHandler(w http.ResponseWriter, r *http.Request) {
 func main() {
 	addr := "localhost:4242"
 	err := godotenv.Load(".env")
-  	if err != nil {
+	if err != nil {
 		fmt.Printf("読み込み出来ませんでした: %v", err)
 	}
 
 	http.HandleFunc("/upload_video", UploadVideoHandler)
 	http.HandleFunc("/get_thumnail", GetThumnailHandler)
 	http.HandleFunc("/upload_thumnail", UploadThumnailHandler)
+	http.HandleFunc("/get", Get)
+	http.HandleFunc("/post", Post)
+	http.HandleFunc("/put", Put)
+	http.HandleFunc("/patch", Patch)
+
 	log.Printf("Listening on %s ...", addr)
 	log.Fatal(http.ListenAndServe(addr, nil))
 }

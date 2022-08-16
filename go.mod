@@ -5,7 +5,6 @@ go 1.19
 require (
 	github.com/eventials/go-tus v0.0.0-20220610120217-05d0564bb571
 	github.com/joho/godotenv v1.4.0
-	github.com/silentsokolov/go-vimeo v2.2.2+incompatible
 	golang.org/x/oauth2 v0.0.0-20220808172628-8227340efae7
 )
 

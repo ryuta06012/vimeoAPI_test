@@ -12,10 +12,12 @@ import (
 
 	"golang.org/x/oauth2"
 
-	"go-vimeo/vimeo"
+	b64 "encoding/base64"
 
 	tus "github.com/eventials/go-tus"
+
 	"github.com/joho/godotenv"
+	"github.com/silentsokolov/go-vimeo/vimeo"
 )
 
 type Path struct {
@@ -53,11 +55,6 @@ type Request struct {
 	Name string `json:"name"`
 }
 
-type Response struct {
-	BaseLink string `json:"base_link"`
-	Link     string `json:"link"`
-}
-
 type Uploader struct{}
 
 func Initialization() *vimeo.Client {
@@ -67,7 +64,7 @@ func Initialization() *vimeo.Client {
 	}
 
 	//トークンを使用して認証
-	token := os.Getenv("ACCESS_TOKEN")
+	token := os.Getenv("PREMIUM_ACCESS_TOKEN")
 	ts := oauth2.StaticTokenSource(
 		&oauth2.Token{AccessToken: token},
 	)
@@ -77,25 +74,6 @@ func Initialization() *vimeo.Client {
 	client := vimeo.NewClient(tc, &config)
 
 	return client
-}
-
-func Tinitialization() *http.Client {
-	//uploaderをクライアント構成に設定する
-	/* config := vimeo.Config{
-		Uploader: &Uploader{},
-	} */
-
-	//トークンを使用して認証
-	token := os.Getenv("ACCESS_TOKEN")
-	ts := oauth2.StaticTokenSource(
-		&oauth2.Token{AccessToken: token},
-	)
-	tc := oauth2.NewClient(oauth2.NoContext, ts)
-
-	/* // configを使用してvimeoのクライアントを作成
-	client := vimeo.NewClient(tc, &config) */
-
-	return tc
 }
 
 func RequestRead(w http.ResponseWriter, r *http.Request, method string, s interface{}) {
@@ -179,14 +157,66 @@ func NewRequest2(method, url string, header map[string]string, body *os.File) (*
 	return req, nil
 }
 
+func Tinitialization() *http.Client {
+	token := os.Getenv("PREMIUM_ACCESS_TOKEN")
+	ts := oauth2.StaticTokenSource(
+		&oauth2.Token{AccessToken: token},
+	)
+	tc := oauth2.NewClient(oauth2.NoContext, ts)
+	return tc
+}
+
+type Response struct {
+	BaseLink    string `json:"base_link"`
+	Link        string `json:"link"`
+	AccessToken string `json:"access_token"`
+	TokenType   string `json:"token_type"`
+	Scope       string `json:"scope"`
+}
+
+type RequestToken struct {
+	Grante_type string `json:"grant_type"`
+	Scope       string `json:"scope"`
+}
+
+func Tinitialization1() string {
+	url := "https://api.vimeo.com/oauth/authorize/client"
+
+	client := &http.Client{}
+
+	// ヘッダー作成
+	header := http.Header{}
+	token := "Basic " + b64.StdEncoding.EncodeToString([]byte(os.Getenv("CLIENTID")+":"+os.Getenv("CLIENTSECRET")))
+	header.Add("Content-Type", "application/json")
+	header.Add("Authorization", token)
+	header.Add("Accept", "application/vnd.vimeo.*+json;version=3.4")
+
+	// ボディ作成
+	reqBody := RequestToken{
+		Grante_type: "client_credentials",
+		Scope:       "private, edit, upload, video_files, public",
+	}
+	jsonValue, _ := json.Marshal(reqBody)
+	json.Unmarshal(jsonValue, &reqBody)
+	req, _ := http.NewRequest("POST", url, bytes.NewBuffer(jsonValue))
+	req.Header = header
+	res, _ := client.Do(req)
+	var response Response
+	body, _ := io.ReadAll(res.Body)
+	json.Unmarshal(body, &response)
+	fmt.Println("Token = ", response.AccessToken, "response.Scope = ", response.Scope)
+	io.Copy(os.Stdout, res.Body)
+	return response.AccessToken
+}
+
 func Get(w http.ResponseWriter, r *http.Request) {
-	//client := Tinitialization()
-	/* url := "https://api.vimeo.com/videos/739601966?fields=metadata.connections.pictures.uri"
+	token := Tinitialization1()
+	url := "https://api.vimeo.com/videos/740217970?fields=metadata.connections.pictures.uri"
 	header := map[string]string{
-		"Authorization": "bearer " + os.Getenv("ACCESS_TOKEN"),
+		"Authorization": "bearer " + token,
 		"Accept":        "application/vnd.vimeo.*+json;version=3.4",
 	}
-	req, err := NewRequest("GET", url, header, nil)
+	req, err := NewRequest1("GET", url, header, nil)
 	if err != nil {
 		fmt.Println(err.Error())
 	}
@@ -194,14 +224,14 @@ func Get(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		fmt.Println(err.Error())
 	}
-	io.Copy(os.Stdout, res.Body) */
+	io.Copy(os.Stdout, res.Body)
 }
 
 func Post(w http.ResponseWriter, r *http.Request) {
-	client := Tinitialization()
-	url := "https://api.vimeo.com/videos/738843229/pictures" //POST
+	token := Tinitialization1()
+	url := "https://api.vimeo.com/videos/740217970/pictures" //POST
 	header := map[string]string{
-		"Authorization": "bearer " + os.Getenv("ACCESS_TOKEN"),
+		"Authorization": "bearer " + token,
 		"Accept":        "application/vnd.vimeo.*+json;version=3.4",
 	}
 	body := []byte("{\"time\": 100000}")
@@ -209,22 +239,22 @@ func Post(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		fmt.Println(err.Error())
 	}
-	res, err := client.Do(req)
+	res, err := http.DefaultClient.Do(req)
 	if err != nil {
 		fmt.Println(err.Error())
 	}
-	var response Response
+	/* var response Response
 	body, _ = io.ReadAll(res.Body)
 	json.Unmarshal(body, &response)
-	fmt.Println("BaseLink = ", response.BaseLink, "\n", "Link = ", response.Link)
+	fmt.Println("BaseLink = ", response.BaseLink, "\n", "Link = ", response.Link) */
 	io.Copy(os.Stdout, res.Body)
-	Put(w, r, response.BaseLink)
+	//Put(w, r, response.BaseLink)
 }
 
-func Put(w http.ResponseWriter, r *http.Request, u string) {
+func Put(w http.ResponseWriter, r *http.Request) {
 	client := Tinitialization()
-	url := u
-	//url := "https://kaiju.cloud.vimeo.com/video/1489084149?expires=1660650725&sig=4f837449a4a0a03213667dbe7440d21ba082e96e"
+	//url := u
+	url := "https://i.vimeocdn.com/video/1489716249-891aaf766698d4e072020e06deb479289701ebbf64e19f2d982f380d8d022205-d"
 	header := map[string]string{
 		"Accept":       "application/vnd.vimeo.*+json;version=3.4",
 		"Content-Type": "image/png",
@@ -291,7 +321,7 @@ func UploadThumnailHandler(w http.ResponseWriter, r *http.Request) {
 		log.Printf("Videos.CreatePictures(): %v", err)
 		return
 	} */
-	fmt.Println("id = ", thumnail.ID, " filepath = ", thumnail.Filepath)
+	fmt.Println("id =", thumnail.ID, " filepath =", thumnail.Filepath)
 	picture, _, err := client.Videos.UploadPicture(vid, input, f)
 	if err != nil {
 		log.Printf("Videos.UploadPicture(): %v", err)
@@ -357,7 +387,7 @@ func main() {
 	http.HandleFunc("/upload_thumnail", UploadThumnailHandler)
 	http.HandleFunc("/get", Get)
 	http.HandleFunc("/post", Post)
-	//http.HandleFunc("/put", Put)
+	http.HandleFunc("/put", Put)
 	http.HandleFunc("/patch", Patch)
 
 	log.Printf("Listening on %s ...", addr)

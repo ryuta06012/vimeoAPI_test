@@ -1,4 +1,4 @@
-package response
+package vimeo
 
 import (
 	"encoding/json"

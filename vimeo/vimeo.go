@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"io"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"net/url"
 	"os"
@@ -26,7 +25,6 @@ type Client struct {
 
 	BaseURL *url.URL
 
-	// Services used for communicating with the API
 	Videos *VideosService
 }
 
@@ -56,20 +54,6 @@ func (c *Client) Client() *http.Client {
 	return c.client
 }
 
-func (c *Client) RequestRead(w http.ResponseWriter, r *http.Request, method string, s interface{}) {
-	if r.Method != method {
-		http.Error(w, http.StatusText(http.StatusMethodNotAllowed), http.StatusMethodNotAllowed)
-		return
-	}
-	if r.Header.Get("Content-Type") != "application/json" {
-		w.WriteHeader(http.StatusBadRequest)
-	}
-	if err := json.NewDecoder(r.Body).Decode(&s); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		log.Printf("json.NewEncoder.Encode: %v", err)
-		return
-	}
-}
 func (c *Client) NewRequest1(method, url string, header map[string]string, body interface{}) (*http.Request, error) {
 	var buf io.ReadWriter
 	if body != nil {
@@ -109,7 +93,6 @@ func (c *Client) Do(req *http.Request, v interface{}) (*Response, error) {
 		io.Copy(ioutil.Discard, resp.Body)
 		resp.Body.Close()
 	}()
-
 	response := newResponse(resp)
 
 	if v != nil {

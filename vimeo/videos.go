@@ -41,6 +41,24 @@ func uploadFromFile(uploadURL string, f *os.File) error {
 	return uploader.Upload()
 }
 
+func (s *VideosService) GetVideo(vuri string) (*Response, *UploadVideoResponse, error) {
+	url := s.client.BaseURL.String() + vuri
+	header := map[string]string{
+		"Authorization": "bearer " + s.client.Token,
+		"Accept":        "application/vnd.vimeo.*+json;version=3.4",
+	}
+	req, err := s.client.NewRequest1("GET", url, header, nil)
+	if err != nil {
+		fmt.Println(err.Error())
+	}
+	var videoRespponse = &UploadVideoResponse{}
+	res, err := s.client.Do(req, videoRespponse)
+	if err != nil {
+		fmt.Println(err.Error())
+	}
+	return res, videoRespponse, err
+}
+
 func (s *VideosService) UploadVideo(videoUrl string) (*VideoUploadResponse, *Response, error) {
 	url := "https://api.vimeo.com/me/videos"
 	header := map[string]string{

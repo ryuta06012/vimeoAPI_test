@@ -14,9 +14,18 @@ func main() {
 		fmt.Printf("読み込み出来ませんでした: %v", err)
 	}
 	client := vimeo.NewClient(nil, "264de4b79b29af50f49579bb8d12283c")
-	v, _, _ := client.Videos.UploadVideo("/Users/handaryuuta/Downloads/test1.mp4")
-	fmt.Printf("v: %v\n", v)
+	client.Videos.UploadVideo("/Users/handaryuuta/Downloads/test1.mp4")
+	/* //fmt.Printf("v: %v\n", v)
+	_, thum, _ := client.Videos.GetThumnail(v.URI)
+	fmt.Printf("thum.URI: %v\n", thum.URI)
+	fmt.Printf("thum.Active: %v\n", thum.Active)
+	fmt.Printf("thum.DefaultPicture: %v\n", thum.DefaultPicture)
+	println("--------\n")
 	client.Videos.UploadThumnail(v.URI, "/Users/handaryuuta/Downloads/test.png")
 	client.Videos.UploadThumnail(v.URI, "/Users/handaryuuta/Downloads/pattern2_g.png")
-	fmt.Printf("v: %v\n", v)
+	_, thum, _ = client.Videos.GetThumnail(v.URI)
+	fmt.Printf("thum.URI: %v\n", thum.URI)
+	fmt.Printf("thum.Active: %v\n", thum.Active) */
+	//fmt.Printf("thum.DefaultPicture: %v\n", thum.DefaultPicture)
+	//fmt.Printf("v: %v\n", v)
 }

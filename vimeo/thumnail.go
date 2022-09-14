@@ -1,9 +1,8 @@
 package vimeo
 
 import (
+	"errors"
 	"fmt"
-	"io"
-	"net/http"
 	"os"
 )
 
@@ -11,63 +10,79 @@ type PathRequest struct {
 	Active bool `json:"active"`
 }
 
-func (s *VideosService) ThumnailGet(vuri string) {
-	url := s.client.BaseURL.String() + vuri + "?fields=metadata.connections.pictures.uri"
-	header := map[string]string{
-		"Authorization": "bearer " + s.client.Token,
-		"Accept":        "application/vnd.vimeo.*+json;version=3.4",
-	}
-	req, err := s.client.NewRequest1("GET", url, header, nil)
+/*
+Get the thumbnail set for the video
+*/
+func (s *VideosService) GetThumnail(vuri string) (*Response, *ThumnailReponse, error) {
+	_, video, err := s.GetVideo(vuri)
 	if err != nil {
-		fmt.Println(err.Error())
+		return nil, nil, errors.New(err.Error())
 	}
-	res, err := http.DefaultClient.Do(req)
+	fmt.Printf("video.Pictures.URI: %v\n", video.Pictures.URI)
+	res, thumnail, err := getThumnail(s.client, video.Pictures.URI)
 	if err != nil {
-		fmt.Println(err.Error())
+		return nil, nil, errors.New(err.Error())
 	}
-	io.Copy(os.Stdout, res.Body)
+	return res, thumnail, err
 }
 
-func (s *VideosService) UploadThumnail(vuri string, purl string) error {
+func (s *VideosService) UploadThumnail(vuri string, filpath string) (*Response, *ThumnailReponse, error) {
 	url := s.client.BaseURL.String() + vuri + "/pictures"
+	_, thumanilreponse, err := createThumnailResource(s.client, url)
+	if err != nil {
+		return nil, nil, errors.New(err.Error())
+	}
+
+	_, err = uploadThumnai(s.client, thumanilreponse.Link, filpath)
+	if err != nil {
+		return nil, nil, errors.New(err.Error())
+	}
+
+	response, thumnailres, err := editThumnai(s.client, thumanilreponse.URI)
+	if err != nil {
+		return nil, nil, errors.New(err.Error())
+	}
+	return response, thumnailres, nil
+}
+
+func createThumnailResource(c *Client, url string) (*Response, *ThumnailReponse, error) {
 	header := map[string]string{
-		"Authorization": "bearer " + s.client.Token,
+		"Authorization": "bearer " + c.Token,
 		"Accept":        "application/vnd.vimeo.*+json;version=3.4",
 	}
 	body := []byte("{\"time\": 100000}")
-	req, err := s.client.NewRequest1("POST", url, header, body)
+	req, err := c.NewRequest1("POST", url, header, body)
 	if err != nil {
 		fmt.Println(err.Error())
 	}
-	var response = &PostResponse{}
-	_, err = s.client.Do(req, response)
+	var thumanilresponse = &ThumnailReponse{}
+	res, err := c.Do(req, thumanilresponse)
 	if err != nil {
-		fmt.Println(err.Error())
+		return nil, nil, errors.New(err.Error())
 	}
-	uploadThumnai(s.client, response.Link, purl, response.URI)
-	return nil
+	return res, thumanilresponse, nil
 }
 
-func uploadThumnai(c *Client, url string, purl string, picture_uri string) {
+func uploadThumnai(c *Client, url string, filpath string) (*Response, error) {
 	header := map[string]string{
 		"Authorization": "bearer " + c.Token,
 		"Content-Type":  "image/png",
 		"Accept":        "application/vnd.vimeo.*+json;version=3.4",
 	}
-	file, err := os.Open(purl)
+	file, err := os.Open(filpath)
 	req, err := c.NewRequest2("PUT", url, header, file)
 	if err != nil {
-		fmt.Println("NewRequest1 = ", err.Error())
+		return nil, errors.New(err.Error())
 	}
-	_, err = c.Do(req, nil)
+	response, err := c.Do(req, nil)
 	if err != nil {
-		fmt.Println(err.Error())
+		return nil, errors.New(err.Error())
 	}
-	editThumnai(c, picture_uri)
+	return response, nil
 }
 
-func editThumnai(c *Client, uri string) {
-	url := "https://api.vimeo.com" + uri
+func editThumnai(c *Client, uri string) (*Response, *ThumnailReponse, error) {
+	url := c.BaseURL.String() + uri
 	header := map[string]string{
 		"Authorization": "bearer " + c.Token,
 		"Content-Type":  "application/json",
@@ -78,10 +93,30 @@ func editThumnai(c *Client, uri string) {
 	}
 	req, err := c.NewRequest1("PATCH", url, header, body)
 	if err != nil {
-		fmt.Println(err.Error())
+		return nil, nil, errors.New(err.Error())
 	}
-	_, err = c.Do(req, nil)
+	var thumanilresponse = &ThumnailReponse{}
+	reponse, err := c.Do(req, thumanilresponse)
 	if err != nil {
-		fmt.Println(err.Error())
+		return nil, nil, errors.New(err.Error())
 	}
+	return reponse, thumanilresponse, nil
+}
+
+func getThumnail(c *Client, uri string) (*Response, *ThumnailReponse, error) {
+	url := c.BaseURL.String() + uri
+	header := map[string]string{
+		"Authorization": "bearer " + c.Token,
+		"Accept":        "application/vnd.vimeo.*+json;version=3.4",
+	}
+	req, err := c.NewRequest1("GET", url, header, nil)
+	if err != nil {
+		return nil, nil, errors.New(err.Error())
+	}
+	var thumnailresponse = &ThumnailReponse{}
+	reponse, err := c.Do(req, thumnailresponse)
+	if err != nil {
+		return nil, nil, errors.New(err.Error())
+	}
+	return reponse, thumnailresponse, nil
 }

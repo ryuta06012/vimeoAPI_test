@@ -28,7 +28,7 @@ type Client struct {
 	Videos *VideosService
 }
 
-type Response struct {
+type VimeoResponse struct {
 	*http.Response
 	// Pagination
 	Page       int
@@ -54,7 +54,7 @@ func (c *Client) Client() *http.Client {
 	return c.client
 }
 
-func (c *Client) NewRequest1(method, url string, header map[string]string, body interface{}) (*http.Request, error) {
+func (c *Client) NewHttpRequest(method, url string, header map[string]string, body interface{}) (*http.Request, error) {
 	var buf io.ReadWriter
 	if body != nil {
 		buf = new(bytes.Buffer)
@@ -73,7 +73,7 @@ func (c *Client) NewRequest1(method, url string, header map[string]string, body 
 	return req, nil
 }
 
-func (c *Client) NewRequest2(method, url string, header map[string]string, body *os.File) (*http.Request, error) {
+func (c *Client) NewFileRequest(method, url string, header map[string]string, body *os.File) (*http.Request, error) {
 	req, err := http.NewRequest(method, url, body)
 	if err != nil {
 		return nil, err
@@ -84,7 +84,7 @@ func (c *Client) NewRequest2(method, url string, header map[string]string, body 
 	return req, nil
 }
 
-func (c *Client) Do(req *http.Request, v interface{}) (*Response, error) {
+func (c *Client) Do(req *http.Request, v interface{}) (*VimeoResponse, error) {
 	resp, err := c.client.Do(req)
 	if err != nil {
 		return nil, err
@@ -111,7 +111,7 @@ func (c *Client) Do(req *http.Request, v interface{}) (*Response, error) {
 	return response, err
 }
 
-func newResponse(r *http.Response) *Response {
-	response := &Response{Response: r}
+func newResponse(r *http.Response) *VimeoResponse {
+	response := &VimeoResponse{Response: r}
 	return response
 }

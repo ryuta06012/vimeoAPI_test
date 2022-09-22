@@ -13,7 +13,7 @@ type PathRequest struct {
 /*
 Get the thumbnail set for the video
 */
-func (s *VideosService) GetThumnail(vuri string) (*Response, *ThumnailReponse, error) {
+func (s *VideosService) GetThumnail(vuri string) (*VimeoResponse, *ThumnailReponse, error) {
 	_, video, err := s.GetVideo(vuri)
 	if err != nil {
 		return nil, nil, errors.New(err.Error())
@@ -26,7 +26,7 @@ func (s *VideosService) GetThumnail(vuri string) (*Response, *ThumnailReponse, e
 	return res, thumnail, err
 }
 
-func (s *VideosService) UploadThumnail(vuri string, filpath string) (*Response, *ThumnailReponse, error) {
+func (s *VideosService) UploadThumnail(vuri string, filpath string) (*VimeoResponse, *ThumnailReponse, error) {
 	url := s.client.BaseURL.String() + vuri + "/pictures"
 	_, thumanilreponse, err := createThumnailResource(s.client, url)
 	if err != nil {
@@ -45,13 +45,13 @@ func (s *VideosService) UploadThumnail(vuri string, filpath string) (*Response, 
 	return response, thumnailres, nil
 }
 
-func createThumnailResource(c *Client, url string) (*Response, *ThumnailReponse, error) {
+func createThumnailResource(c *Client, url string) (*VimeoResponse, *ThumnailReponse, error) {
 	header := map[string]string{
 		"Authorization": "bearer " + c.Token,
 		"Accept":        "application/vnd.vimeo.*+json;version=3.4",
 	}
 	body := []byte("{\"time\": 100000}")
-	req, err := c.NewRequest1("POST", url, header, body)
+	req, err := c.NewHttpRequest("POST", url, header, body)
 	if err != nil {
 		fmt.Println(err.Error())
 	}
@@ -63,14 +63,14 @@ func createThumnailResource(c *Client, url string) (*Response, *ThumnailReponse,
 	return res, thumanilresponse, nil
 }
 
-func uploadThumnai(c *Client, url string, filpath string) (*Response, error) {
+func uploadThumnai(c *Client, url string, filpath string) (*VimeoResponse, error) {
 	header := map[string]string{
 		"Authorization": "bearer " + c.Token,
 		"Content-Type":  "image/png",
 		"Accept":        "application/vnd.vimeo.*+json;version=3.4",
 	}
 	file, err := os.Open(filpath)
-	req, err := c.NewRequest2("PUT", url, header, file)
+	req, err := c.NewFileRequest("PUT", url, header, file)
 	if err != nil {
 		return nil, errors.New(err.Error())
 	}
@@ -81,7 +81,7 @@ func uploadThumnai(c *Client, url string, filpath string) (*Response, error) {
 	return response, nil
 }
 
-func editThumnai(c *Client, uri string) (*Response, *ThumnailReponse, error) {
+func editThumnai(c *Client, uri string) (*VimeoResponse, *ThumnailReponse, error) {
 	url := c.BaseURL.String() + uri
 	header := map[string]string{
 		"Authorization": "bearer " + c.Token,
@@ -91,7 +91,7 @@ func editThumnai(c *Client, uri string) (*Response, *ThumnailReponse, error) {
 	body := &PathRequest{
 		Active: true,
 	}
-	req, err := c.NewRequest1("PATCH", url, header, body)
+	req, err := c.NewHttpRequest("PATCH", url, header, body)
 	if err != nil {
 		return nil, nil, errors.New(err.Error())
 	}
@@ -103,13 +103,13 @@ func editThumnai(c *Client, uri string) (*Response, *ThumnailReponse, error) {
 	return reponse, thumanilresponse, nil
 }
 
-func getThumnail(c *Client, uri string) (*Response, *ThumnailReponse, error) {
+func getThumnail(c *Client, uri string) (*VimeoResponse, *ThumnailReponse, error) {
 	url := c.BaseURL.String() + uri
 	header := map[string]string{
 		"Authorization": "bearer " + c.Token,
 		"Accept":        "application/vnd.vimeo.*+json;version=3.4",
 	}
-	req, err := c.NewRequest1("GET", url, header, nil)
+	req, err := c.NewHttpRequest("GET", url, header, nil)
 	if err != nil {
 		return nil, nil, errors.New(err.Error())
 	}

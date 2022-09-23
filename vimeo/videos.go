@@ -41,13 +41,13 @@ func uploadFromFile(uploadURL string, f *os.File) error {
 	return uploader.Upload()
 }
 
-func (s *VideosService) GetVideo(vuri string) (*Response, *UploadVideoResponse, error) {
+func (s *VideosService) GetVideo(vuri string) (*VimeoResponse, *UploadVideoResponse, error) {
 	url := s.client.BaseURL.String() + vuri
 	header := map[string]string{
 		"Authorization": "bearer " + s.client.Token,
 		"Accept":        "application/vnd.vimeo.*+json;version=3.4",
 	}
-	req, err := s.client.NewRequest1("GET", url, header, nil)
+	req, err := s.client.NewHttpRequest("GET", url, header, nil)
 	if err != nil {
 		fmt.Println(err.Error())
 	}
@@ -59,7 +59,7 @@ func (s *VideosService) GetVideo(vuri string) (*Response, *UploadVideoResponse, 
 	return res, videoRespponse, err
 }
 
-func (s *VideosService) UploadVideo(videoUrl string) (*VideoUploadResponse, *Response, error) {
+func (s *VideosService) UploadVideo(videoUrl string) (*VideoUploadResponse, *VimeoResponse, error) {
 	url := "https://api.vimeo.com/me/videos"
 	header := map[string]string{
 		"Authorization": "bearer " + s.client.Token,
@@ -77,7 +77,7 @@ func (s *VideosService) UploadVideo(videoUrl string) (*VideoUploadResponse, *Res
 			Size:     stat.Size(),
 		},
 	}
-	req, err := s.client.NewRequest1("POST", url, header, uploadRequest)
+	req, err := s.client.NewHttpRequest("POST", url, header, uploadRequest)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -101,7 +101,7 @@ func (s *VideosService) VideoPatch(v *UploadVideoResponse) {
 		"Upload-Offset": "0",
 		"Content-Type":  "application/offset+octet-stream",
 	}
-	req, err := s.client.NewRequest1("PATCH", v.Upload.UploadLink, header, nil)
+	req, err := s.client.NewHttpRequest("PATCH", v.Upload.UploadLink, header, nil)
 	_, err = s.client.Do(req, nil)
 	if err != nil {
 		fmt.Println(err.Error())
@@ -114,7 +114,7 @@ func (s *VideosService) VideoHead(v *UploadVideoResponse) {
 		"Tus-Resumable": "1.0.0",
 		"Accept":        "application/vnd.vimeo.*+json;version=3.4",
 	}
-	req, err := s.client.NewRequest1("HEAD", v.Upload.UploadLink, header, nil)
+	req, err := s.client.NewHttpRequest("HEAD", v.Upload.UploadLink, header, nil)
 	client := new(http.Client)
 	resp, err := client.Do(req)
 	if err != nil {

@@ -1,0 +1,33 @@
+version: '3'
+services:
+  app:
+    build:
+      context: .
+      dockerfile: ./docker/go/Dockerfile
+    env_file:
+      - .env
+      
+    #command: go run main.go
+    tty: true
+    volumes:
+      - ".:/app"
+    ports:
+      # 他のアプリケーションと衝突しないように適当なポートを設定
+      - "4242:80"
+
+  minio:
+    image: minio/minio
+    environment:
+      # クレデンシャル情報
+      MINIO_ACCESS_KEY: hogehoge
+      MINIO_SECRET_KEY: fugafuga
+    # コンテナの /data 以下にデータが格納される
+    command: server --console-address ":9001" /data
+    volumes:
+      - "s3-data:/data"
+    ports:
+      # 他のアプリケーションと衝突しないように適当なポートを設定
+      - "9000:9000"
+      - "9001:9001"
+volumes:
+  s3-data:
